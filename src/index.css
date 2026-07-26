@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color: #282C3F;
+    background: #FFFFFF;
+}
+
+h1, h2, h3, h4, .font-heading {
+    font-family: 'Assistant', sans-serif;
+}
+
+@layer base {
+    :root {
+        --background: 0 0% 100%;
+        --foreground: 228 21% 21%;
+        --card: 0 0% 100%;
+        --card-foreground: 228 21% 21%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 228 21% 21%;
+        --primary: 346 100% 62%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 228 12% 96%;
+        --secondary-foreground: 228 21% 21%;
+        --muted: 228 12% 96%;
+        --muted-foreground: 227 6% 52%;
+        --accent: 346 100% 97%;
+        --accent-foreground: 346 100% 42%;
+        --destructive: 0 84.2% 60.2%;
+        --destructive-foreground: 0 0% 98%;
+        --border: 240 7% 92%;
+        --input: 240 7% 92%;
+        --ring: 346 100% 62%;
+        --radius: 0.5rem;
+    }
+}
+
+@layer base {
+    * { @apply border-border; }
+    body { @apply bg-background text-foreground; }
+}
+
+::selection { background: #FF3E6C; color: white; }
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes courier-move {
+    0% { offset-distance: 0%; }
+    100% { offset-distance: 100%; }
+}
+
+@layer base {
+    [data-debug-wrapper="true"] { display: contents !important; }
+    [data-debug-wrapper="true"] > * {
+        margin-left: inherit; margin-right: inherit; margin-top: inherit; margin-bottom: inherit;
+        padding-left: inherit; padding-right: inherit; padding-top: inherit; padding-bottom: inherit;
+        column-gap: inherit; row-gap: inherit; gap: inherit;
+        border-left-width: inherit; border-right-width: inherit; border-top-width: inherit; border-bottom-width: inherit;
+        border-left-style: inherit; border-right-style: inherit; border-top-style: inherit; border-bottom-style: inherit;
+        border-left-color: inherit; border-right-color: inherit; border-top-color: inherit; border-bottom-color: inherit;
+    }
+}

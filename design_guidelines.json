@@ -1,0 +1,135 @@
+{
+  "theme": "light",
+  "brand_name": "BuyReady - Myntra HackerRamp MVP",
+  "typography": {
+    "headings": {
+      "font_family": "Assistant, sans-serif",
+      "weights": ["600", "700", "800"],
+      "usage": "Use for all headings. Keep tracking tight (tracking-tight) on larger header text."
+    },
+    "body": {
+      "font_family": "Inter, sans-serif",
+      "weights": ["400", "500", "600"],
+      "usage": "Use for all body text, paragraphs, captions, and smaller UI text. Maintain leading-relaxed for body copy."
+    },
+    "hierarchy_rules": "H1 max text-4xl on mobile, text-5xl on desktop. Do not exceed text-5xl. Eyebrow labels or small tags must be uppercase, text-xs, with tracking-wider."
+  },
+  "colors": {
+    "primary": {
+      "DEFAULT": "#FF3E6C",
+      "hover": "#E6355F",
+      "foreground": "#FFFFFF"
+    },
+    "background": "#FFFFFF",
+    "surface": "#F5F5F6",
+    "surface_secondary": "#EBEDF0",
+    "text": {
+      "primary": "#282C3F",
+      "secondary": "#535766",
+      "muted": "#7E818C"
+    },
+    "success": "#03A685",
+    "warning": "#FFC0CB",
+    "border": "#EAEAEC",
+    "rules": "No complete transparent backgrounds for header/overlays. Use bg-white/90 with backdrop-blur-md for sticky headers. Primary #FF3E6C ONLY for high-intent CTAs (Add to Bag, BuyReady Unlock)."
+  },
+  "visual_enhancers": {
+    "shadows": {
+      "soft": "shadow-[0_2px_8px_rgba(40,44,63,0.08)]",
+      "floating": "shadow-[0_8px_24px_rgba(40,44,63,0.12)]"
+    },
+    "borders": {
+      "radius": "rounded-lg to rounded-2xl for soft cards. Pill-shaped (rounded-full) for tags and chips.",
+      "dividers": "Subtle grey dividers (border-gray-200) between sections."
+    },
+    "effects": "Glassmorphism for bottom sheets, sticky navs, and sticky bottom CTAs (bg-white/90 backdrop-blur-xl). Never use flat muddy transparency."
+  },
+  "components": {
+    "Button": "Pill-shaped or rounded-md. Primary CTA is full-width sticky at the bottom on mobile ('Add to Bag') with #FF3E6C background.",
+    "Card": "Soft rounded cards, generous internal padding (p-4 to p-6). No harsh black shadows.",
+    "BottomSheet": "Framer Motion slide-up sheet for 'Why Is This Recommended'. bg-white with a top drag handle.",
+    "Tabs": "Underline transition tabs (using Framer Motion layoutId) for smooth switching in the bottom sheet.",
+    "TrustStrip": "Always visible footer. Icons + Text: 100% Original, Easy Returns, Secure Payment, Trusted by Millions.",
+    "BuyReadyLayer": "Custom decision component on PDP featuring Fit Profile Card, Delivery Prediction, and BuyReady Hero Card."
+  },
+  "grids_and_layouts": {
+    "mobile_first": "Design primarily for mobile devices (360px width) scaling up smoothly.",
+    "desktop_strategy": "On desktop, use responsive grids (grid-cols-1 mobile -> grid-cols-3 or 4 desktop) for product listings. The layout should remain generous, avoiding cramped UI.",
+    "product_grid": "grid-cols-2 on mobile, grid-cols-4 on desktop. gap-4.",
+    "spacing": "Generous spacing. Use p-4 on mobile, p-8 on desktop. Containers with borders need internal padding (p-4 to p-6)."
+  },
+  "motion": {
+    "BuyReady_Unlock": "Scale up with spring physics, green #03A685 glowing border or fill upon unlocking the insight.",
+    "Confidence_Bar": "Width expansion from 0 to X% using Framer Motion (duration 0.8s, easeOut) to visualize fit/trust confidence.",
+    "Bottom_Sheet": "Slide from 100% Y to 0% Y. (type: 'spring', damping: 25, stiffness: 200).",
+    "Page_Transitions": "Subtle fade (opacity 0 to 1) and y-offset (5px to 0px)."
+  },
+  "accessibility": {
+    "contrast": "Text must pass WCAG AA. Grey text (#7E818C) should be highly legible on white.",
+    "interactive": "Every interactive element MUST have data-testid attribute (e.g., data-testid='add-to-bag-btn').",
+    "motion": "Respect prefers-reduced-motion for animations."
+  },
+  "image_urls": {
+    "hero_banners": [
+      {
+        "url": "https://images.unsplash.com/photo-1607189200597-4d0923ef98c6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHw0fHxpbmRpYW4lMjB3b21hbiUyMGZhc2hpb24lMjBwb3J0cmFpdCUyMGNhc3VhbHxlbnwwfHx8fDE3ODQwNDU3NTh8MA&ixlib=rb-4.1.0&q=85",
+        "category": "Hero Banner / Splash",
+        "description": "Indian woman fashion casual portrait"
+      }
+    ],
+    "product_women": [
+      {
+        "url": "https://images.unsplash.com/photo-1618559850638-2aed8a8e8cdc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHwyfHxpbmRpYW4lMjB3b21hbiUyMGZhc2hpb24lMjBwb3J0cmFpdCUyMGNhc3VhbHxlbnwwfHx8fDE3ODQwNDU3NTh8MA&ixlib=rb-4.1.0&q=85",
+        "category": "Product Listing - Women",
+        "description": "Woman in casual hoodie and jeans"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1739429942851-9083ee185d3d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHwzfHxpbmRpYW4lMjB3b21hbiUyMGZhc2hpb24lMjBwb3J0cmFpdCUyMGNhc3VhbHxlbnwwfHx8fDE3ODQwNDU3NTh8MA&ixlib=rb-4.1.0&q=85",
+        "category": "Product Listing - Women",
+        "description": "Woman in ethnic sari"
+      }
+    ],
+    "product_men": [
+      {
+        "url": "https://images.unsplash.com/photo-1690210903706-ff0ab22038f9?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MDV8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBtYW4lMjBmYXNoaW9uJTIwY2FzdWFsJTIwc3RhbmRpbmd8ZW58MHx8fHwxNzg0MDQ1NzU4fDA&ixlib=rb-4.1.0&q=85",
+        "category": "Product Listing - Men",
+        "description": "Man in denim jacket casual"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1767775494487-38aa4572e747?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MDV8MHwxfHNlYXJjaHwzfHxpbmRpYW4lMjBtYW4lMjBmYXNoaW9uJTIwY2FzdWFsJTIwc3RhbmRpbmd8ZW58MHx8fHwxNzg0MDQ1NzU4fDA&ixlib=rb-4.1.0&q=85",
+        "category": "Product Listing - Men",
+        "description": "Man in pink shirt casual"
+      }
+    ],
+    "beauty_products": [
+      {
+        "url": "https://images.pexels.com/photos/3993398/pexels-photo-3993398.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "category": "Product Listing - Beauty",
+        "description": "Beauty and grooming products flatlay"
+      }
+    ]
+  },
+  "3d_libraries": "Framer Motion (for all requested layout/UI animations: bottom sheets, confidence bars, BuyReady unlocks). No 3D libraries (Three.js/R3F) required for this specific UI.",
+  "instructions_to_main_agent": [
+    "Install 'framer-motion', 'lucide-react', and 'sonner'.",
+    "Use standard React .js syntax, not .tsx.",
+    "Implement the 'BuyReady - Pre-Purchase Decision Layer' as a custom card component on the PDP, utilizing Framer Motion for the 'unlock' entrance and confidence bar fill.",
+    "Create a reusable BottomSheet component using framer-motion (drag='y') for the 'Why Is This Recommended' feature.",
+    "Implement standard e-commerce features: PLP grid, Wishlist toggle (heart icon), Cart drawer, and standard checkout flow.",
+    "The sticky 'Add to Bag' button on mobile PDP MUST be fixed at the bottom with a z-index of 50 and use the #FF3E6C primary color.",
+    "The Trust Strip footer must be rendered globally on the App or layout level."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. Avoid this. Make it feel premium, like a top 1% app.",
+    "Do not make generic centered layouts. DO NOT center align the app container (.App { text-align: center; } is banned).",
+    "Create depth through layered design elements with z-index hierarchy and soft shadows.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur) for sticky headers and bottom sheet overlays. Never use fully transparent headers.",
+    "You MUST NOT apply universal transition (e.g., transition: all). Add specific transitions for interactable elements to avoid breaking transforms.",
+    "Every interaction needs micro-animations - hover states, transitions, entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "All interactive elements MUST include a data-testid attribute (e.g., data-testid='buy-ready-btn').",
+    "Use 'sonner' for toasts.",
+    "NEVER use placeholder text for images, use the provided image URLs.",
+    "NEVER use emoji characters for icons, use 'lucide-react'."
+  ]
+}
