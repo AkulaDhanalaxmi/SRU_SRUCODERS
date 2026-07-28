@@ -45,11 +45,45 @@ def test_predict_delivery_suggests_alternatives_when_both_miss():
 
 def test_predict_delivery_uses_pin_specific_day_shift():
     product = _product()
-    first = predict_delivery(product, "506001", event_date=None, payment_method="card")
-    second = predict_delivery(product, "506002", event_date=None, payment_method="card")
-    third = predict_delivery(product, "506003", event_date=None, payment_method="card")
-    assert first["options"][0]["days"] != second["options"][0]["days"]
-    assert second["options"][0]["days"] != third["options"][0]["days"]
+    first = predict_delivery(product, "500081", event_date=None, payment_method="card")
+    second = predict_delivery(product, "700001", event_date=None, payment_method="card")
+    third = predict_delivery(product, "110001", event_date=None, payment_method="card")
+    days = {first["options"][0]["days"], second["options"][0]["days"], third["options"][0]["days"]}
+    assert len(days) >= 2
+    assert first["options"][0]["days"] == 1
+    assert second["options"][0]["days"] == 2
+    assert third["options"][0]["days"] == 3
+
+
+def test_predict_delivery_same_city_express_today():
+    product = _product()
+    product["warehouse"] = "Hyderabad"
+    product["warehouse_stock"] = {"Hyderabad": 5}
+    result = predict_delivery(product, "500081", event_date=None, payment_method="card")
+    assert result["options"][0]["days"] == 1
+    assert result["options"][1]["days"] == 0
+    assert result["confidence"] >= 90
+    assert result["confidence_label"] == "High"
+
+
+def test_predict_delivery_nearby_state_express_next_day():
+    product = _product()
+    product["warehouse"] = "Bengaluru"
+    product["warehouse_stock"] = {"Bengaluru": 5}
+    result = predict_delivery(product, "500081", event_date=None, payment_method="card")
+    assert result["options"][0]["days"] == 2
+    assert result["options"][1]["days"] == 1
+
+
+def test_predict_delivery_far_state_standard_three_to_five():
+    product = _product()
+    product["warehouse"] = "Delhi NCR"
+    product["warehouse_stock"] = {"Delhi NCR": 5}
+    result = predict_delivery(product, "600001", event_date=None, payment_method="card")
+    assert result["options"][0]["days"] == 5
+    assert result["options"][1]["days"] == 3
+    assert result["confidence"] == 55
+    assert result["confidence_label"] == "Low"
 
 
 def test_rank_better_choice_results_prioritises_faster_delivery():
