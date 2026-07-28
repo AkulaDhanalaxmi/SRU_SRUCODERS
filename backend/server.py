@@ -1058,6 +1058,48 @@ WAREHOUSE_COORDS = {
     "Kolkata": (22.5726, 88.3639),
 }
 
+CITY_COORDS = {
+    "hyderabad": (17.3850, 78.4867),
+    "bengaluru": (12.9716, 77.5946),
+    "bangalore": (12.9716, 77.5946),
+    "mumbai": (19.0760, 72.8777),
+    "delhi": (28.6139, 77.2090),
+    "delhi ncr": (28.7041, 77.1025),
+    "noida": (28.5355, 77.3910),
+    "gurgaon": (28.4595, 77.0266),
+    "chennai": (13.0827, 80.2707),
+    "kolkata": (22.5726, 88.3639),
+    "vijayawada": (16.5062, 80.6480),
+    "pune": (18.5204, 73.8567),
+}
+
+
+def _coords_for_city(city):
+    if not city:
+        return None
+    lower = city.strip().lower()
+    if lower in CITY_COORDS:
+        return CITY_COORDS[lower]
+    for key, coords in CITY_COORDS.items():
+        if key in lower:
+            return coords
+    if "delhi" in lower:
+        return CITY_COORDS["delhi ncr"]
+    if "hyderabad" in lower:
+        return CITY_COORDS["hyderabad"]
+    if "bengaluru" in lower or "bangalore" in lower:
+        return CITY_COORDS["bengaluru"]
+    return None
+
+
+def _coords_for_address(address):
+    if not address:
+        return None
+    coords = _coords_for_city(address.get("city") or "")
+    if coords:
+        return coords
+    return _coords_for_city(address.get("state") or "")
+
 PIN_REGION_NEAREST = {
     "1": "Delhi NCR",
     "2": "Kolkata",
@@ -1097,9 +1139,6 @@ PROCESSING_LABELS = [
     (800, "Busy warehouse", 12),
     (9999, "Peak sale dispatch tomorrow", 24),
 ]
-
-MIN_STANDARD_TRANSIT_DAYS = 3
-MIN_EXPRESS_TRANSIT_DAYS = 2
 
 
 def _det(seedstr):
@@ -1143,15 +1182,16 @@ def _distance_for_pin(pin, warehouse):
     return 1000
 
 
-def _transit_days_from_distance(distance):
-    for limit, days in TRANSIT_BANDS:
-        if distance <= limit:
-            if limit == 1200 and days == 3:
-                return 4 if distance > 1000 else 3
-            if limit == 9999 and days == 5:
-                return 6 if distance > 1500 else 5
-            return days
-    return 6
+def _transit_days_for_distance(distance):
+    if distance <= 150:
+        return 1, 0
+    if distance <= 700:
+        return 2, 1
+    if distance <= 1200:
+        return 3, 2
+    if distance <= 1800:
+        return 4, 3
+    return 5, 3
 
 
 def _select_courier(distance, rng):
@@ -1323,8 +1363,7 @@ def predict_delivery(product, pin, event_date=None, payment_method="card"):
     courier, courier_confidence = _select_courier(distance, rng)
     courier_delay_hours = max(0.5, round((100 - courier_confidence) / 10, 1))
 
-    standard_transit_days = max(MIN_STANDARD_TRANSIT_DAYS, _transit_days_from_distance(distance))
-    express_transit_days = max(MIN_EXPRESS_TRANSIT_DAYS, standard_transit_days - 1)
+    standard_transit_days, express_transit_days = _transit_days_for_distance(distance)
     standard_hours = warehouse_processing_hours + payment_delay_hours + standard_transit_days * 24 + courier_delay_hours
     express_hours = warehouse_processing_hours + payment_delay_hours + express_transit_days * 24 + courier_delay_hours
 
@@ -1335,17 +1374,23 @@ def predict_delivery(product, pin, event_date=None, payment_method="card"):
     express_label = _format_eta_label(express_eta)
 
     options = [
-        {"type": "standard", "label": "Free Delivery", "date": standard_label, "days": max(0, (standard_eta.date() - today.date()).days), "fee": 0, "arrival_iso": standard_eta.isoformat(), "meets_event": None, "color": "green"},
-        {"type": "express", "label": "Express Delivery", "date": express_label, "days": max(0, (express_eta.date() - today.date()).days), "fee": 99, "arrival_iso": express_eta.isoformat(), "meets_event": None, "color": "green"},
+        {"type": "standard", "label": "Free Delivery", "date": standard_label, "days": standard_transit_days, "fee": 0, "arrival_iso": standard_eta.isoformat(), "meets_event": None, "color": "green"},
+        {"type": "express", "label": "Express Delivery", "date": express_label, "days": express_transit_days, "fee": 99, "arrival_iso": express_eta.isoformat(), "meets_event": None, "color": "green"},
     ]
 
-    distance_penalty = min(30, int(distance / 60))
-    processing_score = 100 - ({"Ready stock": 0, "Busy warehouse": 8, "Limited stock in nearest warehouse": 12, "Backorder from warehouse": 35, "Peak sale dispatch tomorrow": 15}[warehouse_processing])
-    confidence = int((courier_confidence + processing_score + (100 - distance_penalty)) / 3)
+    # Demo-friendly confidence mapping based on the standard delivery window.
+    if standard_transit_days <= 2:
+        confidence = 95
+    elif standard_transit_days <= 4:
+        confidence = 75
+    else:
+        confidence = 55
+    confidence_label = "High" if confidence >= 90 else "Medium" if confidence >= 70 else "Low"
 
     result = {
         "options": options,
         "confidence": confidence,
+        "confidence_label": confidence_label,
         "warehouse": selected_warehouse,
         "warehouse_distance_km": distance,
         "warehouse_processing": warehouse_processing,
@@ -1527,13 +1572,13 @@ async def evaluate(body: EvaluateIn, user=Depends(get_current_user)):
 
 
 def rank_better_choice_results(options):
-    """Rank alternatives by delivery speed, warehouse stock, distance, then score."""
+    """Rank alternatives by available warehouse stock first, then delivery speed, distance, and score."""
     def sort_key(item):
         stock_qty = item.get("warehouse_stock_qty")
-        stock_rank = -stock_qty if stock_qty is not None else 1
+        stock_rank = -(stock_qty if stock_qty is not None else -1)
         return (
-            item.get("delivery_days", 999),
             stock_rank,
+            item.get("delivery_days", 999),
             item.get("warehouse_distance_km", 9999),
             -item.get("score", 0),
         )
@@ -1754,8 +1799,37 @@ async def create_order(body: OrderIn, user=Depends(get_current_user)):
     now = datetime.now(timezone.utc)
     delivery_preference = (body.delivery_preference or "normal").lower()
     preferred_date = body.preferred_delivery_date
-    suggested_dt, delivery_message = resolve_delivery_window(body.delivery_type, delivery_preference, preferred_date)
+    selected_payment_method = body.payment_method or "card"
+    delivery_prediction = None
+    delivery_option = None
+    suggested_dt = None
+    delivery_message = None
     courier_partner = {"express": "Delhivery Air", "same_day": "Blue Dart", "standard": "Delhivery"}.get(body.delivery_type, "Delhivery")
+
+    try:
+        primary_pid = pids[0]
+        primary_product = pmap.get(primary_pid)
+        if primary_product:
+            delivery_prediction = predict_delivery(primary_product, address["pin"], body.event_date, selected_payment_method)
+            delivery_option = next((o for o in delivery_prediction["options"] if o["type"] == body.delivery_type), delivery_prediction["options"][0])
+            if delivery_option and delivery_option.get("arrival_iso"):
+                suggested_dt = datetime.fromisoformat(delivery_option["arrival_iso"])
+            elif delivery_prediction.get("estimated_date"):
+                suggested_dt = datetime.fromisoformat(delivery_prediction["estimated_date"])
+            delivery_message = delivery_prediction.get("prediction_text") or delivery_prediction.get("event_notice")
+    except Exception:
+        delivery_prediction = None
+        delivery_option = None
+
+    if not suggested_dt:
+        suggested_dt, delivery_message = resolve_delivery_window(body.delivery_type, delivery_preference, preferred_date)
+
+    # Ensure all order items reflect the selected delivery warehouse
+    selected_warehouse = delivery_prediction.get("warehouse") if delivery_prediction else None
+    if selected_warehouse:
+        for item in items:
+            item["warehouse"] = selected_warehouse
+
     # Compute BuyReady evaluation for primary item to store a confidence score
     try:
         primary_pid = pids[0]
@@ -1770,6 +1844,7 @@ async def create_order(body: OrderIn, user=Depends(get_current_user)):
         buyready_score = evaluation["overall_score"] if evaluation else None
     except Exception:
         buyready_score = None
+
     order = {
         "id": f"OD{now.strftime('%y%m%d')}{random.randint(10000, 99999)}",
         "user_id": user["id"], "items": items, "address": address,
@@ -1781,6 +1856,12 @@ async def create_order(body: OrderIn, user=Depends(get_current_user)):
         "preferred_delivery_date": preferred_date,
         "suggested_delivery_date": suggested_dt.date().isoformat(),
         "delivery_message": delivery_message,
+        "delivery_prediction": delivery_prediction,
+        "delivery_option": delivery_option["type"] if delivery_option else body.delivery_type,
+        "delivery_warehouse": delivery_prediction["warehouse"] if delivery_prediction else None,
+        "delivery_warehouse_coords": WAREHOUSE_COORDS.get(delivery_prediction["warehouse"]) if delivery_prediction else None,
+        "customer_location_coords": _coords_for_address(address),
+        "delivery_courier": delivery_prediction["courier"] if delivery_prediction else courier_partner,
         "gift_wrap": bool(body.gift_wrap),
         "gift_message": body.gift_message or None,
         "tracking_number": f"MN{now.strftime('%y%m%d')}{random.randint(100000, 999999)}",
@@ -1805,6 +1886,12 @@ async def create_order(body: OrderIn, user=Depends(get_current_user)):
     return order
 
 
+def _order_query(oid: str, user: dict) -> dict:
+    query = {} if user.get("role") in {"operator", "manager"} else {"user_id": user["id"]}
+    query["id"] = oid
+    return query
+
+
 @api.get("/orders")
 async def list_orders(user=Depends(get_current_user)):
     return await db.orders.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(50)
@@ -1812,9 +1899,13 @@ async def list_orders(user=Depends(get_current_user)):
 
 @api.get("/orders/{oid}")
 async def get_order(oid: str, user=Depends(get_current_user)):
-    order = await db.orders.find_one({"id": oid, "user_id": user["id"]}, {"_id": 0})
+    order = await db.orders.find_one(_order_query(oid, user), {"_id": 0})
     if not order:
         raise HTTPException(404, "Order not found")
+    if not order.get("delivery_warehouse_coords") and order.get("delivery_warehouse"):
+        order["delivery_warehouse_coords"] = WAREHOUSE_COORDS.get(order["delivery_warehouse"])
+    if not order.get("customer_location_coords"):
+        order["customer_location_coords"] = _coords_for_address(order.get("address"))
     return order
 
 
@@ -1869,7 +1960,7 @@ async def cancel_order(oid: str, user=Depends(get_current_user)):
 
 @api.get("/orders/{oid}/monitor")
 async def order_monitor(oid: str, user=Depends(get_current_user)):
-    order = await db.orders.find_one({"id": oid, "user_id": user["id"]}, {"_id": 0})
+    order = await db.orders.find_one(_order_query(oid, user), {"_id": 0})
     if not order:
         raise HTTPException(404, "Order not found")
     rng = _det(oid)
@@ -2213,11 +2304,9 @@ async def startup():
 async def shutdown_db_client():
     client.close()
 if __name__ == "__main__":
-    import uvicorn
-
     uvicorn.run(
         "backend.server:app",
         host="0.0.0.0",
-        port=8000,
-        reload=True
+        port=int(os.environ.get("PORT", 8000)),
+        reload=False
     )
