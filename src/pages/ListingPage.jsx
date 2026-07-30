@@ -87,7 +87,7 @@ export default function ListingPage() {
       }
       return true;
     });
-  }, [products, minPrice, maxPrice, colorFilter, occasion]);
+  }, [products, minPrice, maxPrice, colorFilter, occasion, category, gender]);
   useEffect(() => {
     setProducts(null);
     const apiCategory = category ? (UI_TO_BACKEND_CATEGORY[category] || category) : undefined;

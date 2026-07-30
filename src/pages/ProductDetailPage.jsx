@@ -236,29 +236,34 @@ function BuyReadyCard({
     if (size) setSizeAlert(false);
   }, [size]);
 
-  const fetchedReviews = Array.isArray(reviewsData?.reviews) ? reviewsData.reviews : null;
-  const fetchedReviewCounts = fetchedReviews
-    ? fetchedReviews.reduce(
-        (acc, r) => {
-          const rating = r.rating || 0;
-          if (rating >= 4) acc.pos += 1;
-          if (rating <= 2) acc.neg += 1;
-          acc.total += 1;
-          return acc;
-        },
-        { pos: 0, neg: 0, total: 0 }
-      )
-    : { pos: 0, neg: 0, total: 0 };
-  const actualPositivePercent = fetchedReviewCounts.total
-    ? Math.round((fetchedReviewCounts.pos / fetchedReviewCounts.total) * 100)
-    : null;
-  const resolvedPositivePercent = (reviewsSummary?.positive_percent != null && !(reviewsSummary.positive_percent === 0 && fetchedReviewCounts.total > 0))
-    ? reviewsSummary.positive_percent
-    : actualPositivePercent;
-  const displayPositivePercent = resolvedPositivePercent === 0 ? 10 : resolvedPositivePercent;
-  const normalizedReviewsSummary = reviewsSummary
-    ? { ...reviewsSummary, positive_percent: resolvedPositivePercent ?? reviewsSummary.positive_percent }
-    : reviewsSummary;
+  const { normalizedReviewsSummary, displayPositivePercent } = useMemo(() => {
+    const fetchedReviews = Array.isArray(reviewsData?.reviews) ? reviewsData.reviews : null;
+    const fetchedReviewCounts = fetchedReviews
+      ? fetchedReviews.reduce(
+          (acc, r) => {
+            const rating = r.rating || 0;
+            if (rating >= 4) acc.pos += 1;
+            if (rating <= 2) acc.neg += 1;
+            acc.total += 1;
+            return acc;
+          },
+          { pos: 0, neg: 0, total: 0 }
+        )
+      : { pos: 0, neg: 0, total: 0 };
+    const actualPositivePercent = fetchedReviewCounts.total
+      ? Math.round((fetchedReviewCounts.pos / fetchedReviewCounts.total) * 100)
+      : null;
+    const resolvedPositivePercent = (reviewsSummary?.positive_percent != null && !(reviewsSummary.positive_percent === 0 && fetchedReviewCounts.total > 0))
+      ? reviewsSummary.positive_percent
+      : actualPositivePercent;
+    const normalized = reviewsSummary
+      ? { ...reviewsSummary, positive_percent: resolvedPositivePercent ?? reviewsSummary.positive_percent }
+      : reviewsSummary;
+    return {
+      normalizedReviewsSummary: normalized,
+      displayPositivePercent: resolvedPositivePercent === 0 ? 10 : resolvedPositivePercent,
+    };
+  }, [reviewsData?.reviews, reviewsSummary]);
 
   const analysis = useMemo(
     () => generateAnalysis({ selectedSize, product, evaluation, reviewsSummary: normalizedReviewsSummary }),
@@ -2505,7 +2510,7 @@ export default function ProductDetailPage() {
       }
     }
     return reasons.length ? reasons : ["A few aspects of this product need a closer look before you buy."];
-  }, [buyReady.items, buyReady.level]);
+  }, [buyReady.items, buyReady.level, evaluation?.recommended_size, evaluation?.selected_size, size]);
 
   // Derived values used by the Why BottomSheet — compute using the same
   // analysis function as the BuyReady card, with sensible fallbacks.
