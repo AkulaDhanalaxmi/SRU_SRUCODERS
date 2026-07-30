@@ -48,6 +48,11 @@ from starlette.staticfiles import StaticFiles
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
 
+try:
+    import uvicorn
+except ImportError:
+    uvicorn = None
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -2304,6 +2309,8 @@ async def startup():
 async def shutdown_db_client():
     client.close()
 if __name__ == "__main__":
+    if uvicorn is None:
+        raise SystemExit("uvicorn is not installed. Install it with pip install uvicorn")
     uvicorn.run(
         "backend.server:app",
         host="0.0.0.0",
