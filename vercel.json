@@ -3,27 +3,12 @@
     "frontend": {
       "root": ".",
       "framework": "create-react-app"
-    },
-    "backend": {
-      "root": "backend",
-      "framework": "fastapi",
-      "entrypoint": "server.py"
     }
   },
   "rewrites": [
     {
-      "source": "/api(/.*)?",
-      "destination": {
-        "type": "service",
-        "service": "backend"
-      }
-    },
-    {
-      "source": "/(.*)",
-      "destination": {
-        "type": "service",
-        "service": "frontend"
-      }
+      "source": "/api/(.*)",
+      "destination": "https://myntra-speedandtrustt.onrender.com/api/$1"
     }
   ]
 }

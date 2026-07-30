@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const backendBase = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:8000";
+const defaultBackend = process.env.NODE_ENV === "production"
+  ? "https://myntra-speedandtrustt.onrender.com"
+  : "http://127.0.0.1:8000";
+const backendBase = process.env.REACT_APP_BACKEND_URL || defaultBackend;
 const api = axios.create({ baseURL: `${backendBase}/api`, timeout: 30000 });
 
 api.interceptors.request.use((config) => {
