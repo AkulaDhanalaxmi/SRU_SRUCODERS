@@ -1,10 +1,4 @@
 {
-  "services": {
-    "frontend": {
-      "root": ".",
-      "framework": "create-react-app"
-    }
-  },
   "rewrites": [
     {
       "source": "/api/(.*)",
