@@ -6,17 +6,30 @@ const NAMES = { standard: "FREE Delivery", express: "Express Delivery", same_day
 
 export const DeliveryPrediction = ({ delivery, selected, onSelect, onSearchAlternative }) => {
   if (!delivery) return null;
+
+  const confidenceLabel = String(delivery.confidence_label || "High");
+  const confidencePillClass = confidenceLabel === "High"
+    ? "bg-emerald-100 text-emerald-800"
+    : confidenceLabel === "Medium"
+      ? "bg-yellow-100 text-yellow-800"
+      : "bg-rose-100 text-rose-800";
+
   return (
     <div data-testid="delivery-prediction" className="border border-gray-200 rounded-xl p-4 mt-3">
       <div className="flex items-center justify-between mb-3">
         <p className="text-[10px] font-bold uppercase tracking-wider text-[#7E818C]">Delivery Prediction</p>
-        <span className="text-[10px] font-bold text-[#03A685] bg-[#03A685]/10 rounded-full px-2.5 py-1">{delivery.confidence}% on-time</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold text-[#03A685] bg-[#03A685]/10 rounded-full px-2.5 py-1">{delivery.confidence}% on-time</span>
+          <span className={`text-[10px] font-bold rounded-full px-2.5 py-1 ${confidencePillClass}`}>{confidenceLabel} confidence</span>
+        </div>
       </div>
       <div className="space-y-2">
         {delivery.options.filter((o) => o.type !== "same_day").map((o) => {
           const Icon = ICONS[o.type] || Truck;
           const textColor = o.color === "green" ? "text-[#16a34a]" : o.color === "yellow" ? "text-amber-700" : "text-[#7E818C]";
-          const arriveText = o.arrival_iso ? new Date(o.arrival_iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : (o.days === 0 ? "Arrives today" : `Arrives ${o.date}`);
+          const arriveText = o.date
+            ? o.date
+            : (o.arrival_iso ? new Date(o.arrival_iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : (o.days === 0 ? "Arrives today" : `Arrives ${o.date}`));
           return (
             <button key={o.type} data-testid={`delivery-option-${o.type}`} onClick={() => onSelect?.(o.type)}
               className={`w-full flex items-center gap-3 border rounded-lg p-3 text-left transition-colors ${selected === o.type ? "border-[#FF3E6C] bg-[#FF3E6C]/[0.03]" : "border-gray-200"}`}>

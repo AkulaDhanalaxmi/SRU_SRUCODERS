@@ -59,19 +59,22 @@ import { computeBuyReady } from "./productDetailUtils";
 
 function formatDeliveryDate(option) {
   if (!option) return null;
+  if (option.date) return option.date;
   if (option.arrival_iso) {
     const parsed = new Date(option.arrival_iso);
     if (!Number.isNaN(parsed.getTime())) {
       return parsed.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
     }
   }
-  return option.date || option.label || null;
+  return option.label || null;
 }
 
 function getExpressDeliveryDate(deliveryOptions) {
   if (!Array.isArray(deliveryOptions) || !deliveryOptions.length) return null;
   const expressOption = deliveryOptions.find((option) => option.type === "express") || deliveryOptions[1];
-  if (!expressOption?.arrival_iso) return null;
+  if (!expressOption) return null;
+  if (expressOption.date) return expressOption.date;
+  if (!expressOption.arrival_iso) return null;
   const parsed = new Date(expressOption.arrival_iso);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
@@ -328,7 +331,7 @@ function BuyReadyCard({
   // when the selected size equals the recommended size.
   const lowFitConfidence = !!wrongSizeChosen;
   const productIsNegativeReview = isMostlyNegativeLocal;
-  const purchaseDisabled = needsSize || wrongSizeChosen || productIsNegativeReview;
+  const purchaseDisabled = needsSize || wrongSizeChosen;
 
   // Determine what status to display on the top card:
   // - If user explicitly chose a wrong size, show a yellow 'almost' card

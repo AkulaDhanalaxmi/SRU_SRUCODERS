@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ShoppingBag, Minus, Plus, Trash2, Tag, ShieldCheck, CheckCircle2, Package, Truck, ArrowRight, Star, Lock, BadgeCheck } from "lucide-react";
 import api, { apiError } from "../lib/api";
 import { Header } from "../components/Header";
 import { TrustStrip } from "../components/TrustStrip";
+import { useAuth } from "../context/AuthContext";
 import { useShop } from "../context/ShopContext";
 
 const formatDeliveryDate = (value) => {
@@ -17,14 +18,61 @@ const formatDeliveryDate = (value) => {
 export default function BagPage() {
   const navigate = useNavigate();
   const { cart, addToCart, removeFromCart } = useShop();
+  const { user } = useAuth();
   const [coupon, setCoupon] = useState("");
   const [applied, setApplied] = useState(null);
+  const [predictions, setPredictions] = useState({});
 
   const subtotal = cart.reduce((n, i) => n + i.product.price * i.qty, 0);
   const mrpTotal = cart.reduce((n, i) => n + i.product.mrp * i.qty, 0);
   const discount = applied ? Math.floor(subtotal * applied.percent / 100) : 0;
   const total = subtotal - discount;
   const avgConfidence = cart.length ? Math.round(cart.reduce((n, i) => n + i.product.size_accuracy, 0) / cart.length) : 0;
+
+  const pin = user?.addresses?.find((a) => a.default)?.pin || user?.addresses?.[0]?.pin;
+
+  useEffect(() => {
+    if (!pin || cart.length === 0) {
+      setPredictions({});
+      return;
+    }
+
+    let cancelled = false;
+    const uniqueIds = [...new Set(cart.map((item) => item.product_id))];
+
+    Promise.all(uniqueIds.map((pid) =>
+      api.get(`/products/${pid}/delivery`, { params: { pin, payment_method: "card", delivery_type: "standard" } })
+        .then(({ data }) => ({ pid, prediction: data }))
+        .catch(() => ({ pid, prediction: null }))
+    ))
+      .then((results) => {
+        if (cancelled) return;
+        setPredictions(Object.fromEntries(results.map((result) => [result.pid, result.prediction])));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cart, pin]);
+
+  const formatDeliveryPrediction = (prediction, selectedType = "standard") => {
+    if (!prediction) return null;
+    const option = prediction.options?.find((o) => o.type === selectedType) || prediction.options?.[0];
+    if (!option) return prediction.estimated_label || prediction.prediction_text || null;
+    if (option.date) return `Arrives by ${option.date}`;
+    if (option.arrival_iso) {
+      const parsed = new Date(option.arrival_iso);
+      if (!Number.isNaN(parsed.getTime())) {
+        return `Arrives by ${parsed.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}`;
+      }
+    }
+    return prediction.estimated_label || prediction.prediction_text || null;
+  };
+
+  const getDeliveryLabelForItem = (item) => {
+    const prediction = predictions[item.product_id];
+    return formatDeliveryPrediction(prediction) || formatDeliveryDate(item.product.delivery_estimate) || item.product.delivery_estimate || "Arrives Tomorrow";
+  };
 
   const applyCoupon = async () => {
     try {
@@ -98,7 +146,7 @@ export default function BagPage() {
                     {/* Delivery + review badges */}
                     <div className="mt-4 flex flex-wrap gap-2">
                       <span className="inline-flex items-center gap-1.5 rounded-full border border-[#D1FAE5] bg-[#ECFDF5] px-3 py-1.5 text-xs font-semibold text-[#047857]">
-                        <Truck size={14} /> {formatDeliveryDate(i.product.delivery_estimate) || i.product.delivery_estimate || "Arrives Tomorrow"}
+                        <Truck size={14} /> {getDeliveryLabelForItem(i)}
                       </span>
                       <span className="inline-flex items-center gap-1.5 rounded-full border border-[#FEF3C7] bg-[#FFFBEB] px-3 py-1.5 text-xs font-semibold text-[#B45309]">
                         <Star size={14} className="fill-[#B45309]" /> Verified Reviews ({i.product.rating ?? "4.5"})

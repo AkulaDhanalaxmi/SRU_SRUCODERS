@@ -23,6 +23,8 @@ export function AuthProvider({ children }) {
   }, [refreshUser]);
 
   const loginSuccess = (token, userData, remember) => {
+    localStorage.removeItem("br_token");
+    sessionStorage.removeItem("br_token");
     (remember ? localStorage : sessionStorage).setItem("br_token", token);
     setUser(userData);
   };

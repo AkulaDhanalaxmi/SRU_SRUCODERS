@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ShieldCheck, AlertTriangle, CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
 import api, { apiError } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { getVerificationMismatchState } from "./opsDashboardMismatch";
 
 const backendBase = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:8000";
 const resolveBackendUploadUrl = (url) => {
@@ -171,15 +172,11 @@ export default function OpsDashboardPage() {
   const verificationMismatch = verificationStatus?.toLowerCase().includes("mismatch") || verificationResult?.status === "verification_failed" || verificationStatus === "verification_failed";
   const verificationComplete = verificationMatch || verificationMismatch;
   const verificationUnknown = Boolean(verificationStatus && !verificationMatch && !verificationMismatch && verificationStatus !== "pending");
-  const productMatchLow = typeof verificationResult?.product_match === "number" && verificationResult.product_match < 80;
-  const productTypeMatch = verificationResult?.raw_vision?.productTypeMatch === true || verificationResult?.productTypeMatch === true;
-  const skuMatch = verificationResult?.sku_match !== false;
-  const mismatchReasons = Array.isArray(verificationResult?.mismatch_reasons)
-    ? verificationResult.mismatch_reasons.map((reason) => String(reason || "").toLowerCase())
-    : [];
-  const onlyColorMismatch = mismatchReasons.length > 0 && mismatchReasons.every((reason) => reason.includes("color"));
-  const mismatchColorOnly = verificationComplete && !verificationMatch && verificationResult?.color_match === false && (onlyColorMismatch || productTypeMatch || skuMatch);
-  const mismatchProduct = verificationComplete && !verificationMatch && !mismatchColorOnly;
+  const { mismatchColorOnly, mismatchProduct } = getVerificationMismatchState({
+    verificationComplete,
+    verificationMatch,
+    verificationResult,
+  });
   const mismatchSummaryClasses = mismatchProduct
     ? "rounded-[32px] border border-[#FEE2E8] bg-white p-6 shadow-[0_25px_90px_rgba(15,23,42,0.06)]"
     : "rounded-[32px] border border-[#FEF3C7] bg-white p-6 shadow-[0_25px_90px_rgba(15,23,42,0.06)]";
@@ -301,6 +298,7 @@ export default function OpsDashboardPage() {
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-between">
         <button onClick={() => handlePrintLabel(routeOrder, verificationResult.qr_code_url)} className="rounded-3xl border border-[#FF4E7A] bg-white px-6 py-4 text-sm font-semibold text-[#FF4E7A] shadow-sm transition hover:bg-[#ffebf3]">Print QR Label</button>
+        <button onClick={handleMarkReady} className="rounded-3xl bg-[#10b981] px-6 py-4 text-sm font-semibold text-white shadow-lg">Approve & Dispatch</button>
       </div>
     </div>
   ) : (
@@ -321,11 +319,7 @@ export default function OpsDashboardPage() {
         <p className={`mt-3 flex items-center justify-center gap-2 text-lg font-semibold ${mismatchSummaryTextClass}`}>
           <AlertTriangle size={20} /> {mismatchProduct ? "Product mismatch detected" : "Color mismatch detected"}
         </p>
-        <p className={`mt-1 text-sm ${mismatchProduct ? "text-rose-700/80" : "text-amber-700/80"}`}>
-          {mismatchProduct
-            ? "The package appears to be a different product than ordered. Please verify the item and correct the shipment."
-            : "The item is the correct product, but the color does not match the order. Please review the picked item before dispatch."}
-        </p>
+        <p className={`mt-1 text-sm ${mismatchProduct ? "text-rose-700/80" : "text-amber-700/80"}`}>Please inspect the package and update the order if needed before dispatch.</p>
       </div>
 
       <div className="mt-6 divide-y divide-slate-100 rounded-[20px] border border-slate-200 bg-[#F8FAFC] px-5">
@@ -375,7 +369,7 @@ export default function OpsDashboardPage() {
 
   const openQrLink = () => {
     if (verificationResult?.qr_code_url) {
-      window.open(verificationResult.qr_code_url, "_blank");
+      window.open(resolveBackendUploadUrl(verificationResult.qr_code_url), "_blank");
     }
   };
 

@@ -53,7 +53,7 @@ export default function BuyCardDrawer({ open, onClose, product, user, evaluation
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1" onClick={onClose} />
-      <aside className="w-[460px] max-w-[90%] bg-white shadow-2xl border-l p-6 overflow-auto" style={{ backdropFilter: "blur(8px)" }}>
+      <aside className="w-[460px] max-w-[90%] max-h-screen min-h-0 bg-white shadow-2xl border-l p-6 overflow-y-auto overflow-x-hidden" style={{ backdropFilter: "blur(8px)" }}>
         <div className="flex items-center justify-between">
           <div className="flex space-x-3">
             <button onClick={() => setTab("trust")} className={`px-3 py-2 rounded-md font-semibold ${tab === "trust" ? "bg-pink-50 text-pink-600" : "text-slate-600"}`}>🛡 Trust</button>

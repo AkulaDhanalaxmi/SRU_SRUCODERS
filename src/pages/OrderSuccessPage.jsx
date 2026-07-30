@@ -40,15 +40,35 @@ export default function OrderSuccessPage() {
     return () => window.clearTimeout(timer);
   }, [order]);
 
-  const etaLabel = order?.eta
-    ? new Date(order.eta).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })
-    : "Soon";
+  const selectedDeliveryOption = order?.delivery_prediction?.options?.find(
+    (opt) => opt.type === order?.delivery_option
+  ) || order?.delivery_prediction?.options?.[0];
+
+  const etaLabel = formatDeliveryDate(selectedDeliveryOption)
+    || (order?.eta ? new Date(order.eta).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) : null)
+    || order?.estimated_delivery_date
+    || "Soon";
+
+  const deliveryWarehouse = order?.delivery_warehouse || order?.items?.[0]?.warehouse || "the nearest warehouse";
+  const deliveryMessage = order?.delivery_message || order?.delivery_prediction?.prediction_text || "Your order is on track.";
 
   const primaryItem = order?.items?.[0] || null;
   const orderEmail = order?.email || order?.customer_email || "your email";
   const orderPhone = order?.phone || order?.customer_phone || "your phone number";
 
-  const copyOrderId = async () => {
+  function formatDeliveryDate(option) {
+  if (!option) return null;
+  if (option.date) return option.date;
+  if (option.arrival_iso) {
+    const parsed = new Date(option.arrival_iso);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+    }
+  }
+  return option.label || option.estimated_label || null;
+}
+
+const copyOrderId = async () => {
     if (!order?.id) return;
     try {
       await navigator.clipboard.writeText(order.id);
@@ -102,8 +122,9 @@ export default function OrderSuccessPage() {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.36em] text-[#16A34A]">Delivery promise</p>
                 <p className="mt-4 text-lg font-bold text-[#111827]">Your order is confirmed and reserved for fast dispatch.</p>
                 <p className="mt-3 text-sm text-[#475569]">
-                  Expected delivery by <span className="font-semibold text-[#111827]">{etaLabel}</span> from the nearest warehouse.
+                  Expected delivery by <span className="font-semibold text-[#111827]">{etaLabel}</span> from {deliveryWarehouse}.
                 </p>
+                <p className="mt-2 text-xs text-[#475569]">{deliveryMessage}</p>
                 <div className="mt-5 flex flex-col gap-3 rounded-3xl border border-[#D1FAE5] bg-white p-4 text-sm text-[#065F46]">
                   <div className="inline-flex items-center gap-2 font-semibold">
                     <CheckCircle2 size={16} /> 100% original products

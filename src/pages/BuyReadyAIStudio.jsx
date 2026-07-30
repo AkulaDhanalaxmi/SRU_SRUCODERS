@@ -181,6 +181,8 @@ export default function BuyReadyAIStudio() {
                 isLoading={isLoading}
                 elapsedSeconds={elapsedSeconds}
                 fitResult={fitResult}
+                product={product}
+                selectedColor={selectedColor}
                 thumbnails={thumbnails}
                 activeThumbnailIndex={activeThumbnailIndex}
                 onSelectThumbnail={setActiveThumbnailIndex}

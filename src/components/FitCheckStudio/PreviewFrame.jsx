@@ -1,38 +1,6 @@
 import React from "react";
 import { Zap } from "lucide-react";
-
-const ANALYSIS_KEY_MAP = {
-  fit: ["Fit Analysis", "Fit"],
-};
-
-const resolveAnalysis = (analysis, keys) => {
-  if (!analysis) return null;
-  return keys.reduce((value, key) => value || analysis[key], null);
-};
-
-const getFitLabel = (score) => {
-  if (score === null || score === undefined) return "No score";
-  if (score >= 85) return "Excellent";
-  if (score >= 70) return "Great";
-  if (score >= 50) return "Good";
-  return "Needs Review";
-};
-
-const occasionCards = [
-  { title: "Casual", subtitle: "Weekend outings & brunch", icon: "☀️", accent: "bg-[#fff7ed] text-[#c2410c]" },
-  { title: "Office", subtitle: "Smart yet comfortable", icon: "💼", accent: "bg-[#eff6ff] text-[#2563eb]" },
-  { title: "Party", subtitle: "Stylish and standout", icon: "🎉", accent: "bg-[#fdf2f8] text-[#9d174d]" },
-  { title: "Vacation", subtitle: "Easy & holiday ready", icon: "🌴", accent: "bg-[#ecfdf5] text-[#047857]" },
-];
-
-const styleSuggestions = [
-  { title: "Sling Bag", icon: "👜" },
-  { title: "Gold Earrings", icon: "💍" },
-  { title: "Strappy Heels", icon: "👠" },
-  { title: "Denim Jacket", icon: "🧥" },
-];
-
-const colorSwatches = ["#f9a8d4", "#fbcfe8", "#fde68a", "#bbf7d0", "#ddd6fe"];
+import { getFitLabel, getFitSummary } from "./fitCheckHelpers";
 
 export default function PreviewFrame({
   generatedImage,
@@ -40,6 +8,8 @@ export default function PreviewFrame({
   isLoading,
   elapsedSeconds,
   fitResult,
+  product,
+  selectedColor,
   thumbnails = [],
   activeThumbnailIndex = 0,
   onSelectThumbnail,
@@ -47,11 +17,12 @@ export default function PreviewFrame({
   onTryAgain,
   onShop,
 }) {
-  const analysis = fitResult?.analysis || {};
-  const overallScore = fitResult?.confidence ?? null;
-  const fitDescription =
-    resolveAnalysis(analysis, ANALYSIS_KEY_MAP.fit) ||
-    "This outfit looks perfect on you! The fit, length and style suit your body type really well.";
+  const fitData = getFitSummary(product || {}, fitResult, selectedColor);
+  const overallScore = fitData.score;
+  const fitDescription = fitData.summary;
+  const whenToWear = fitData.whenToWear || [];
+  const styleSuggestions = fitData.styleSuggestions;
+  const colorSwatches = fitData.colorHarmony.map((color) => color);
 
   const radius = 26;
   const circumference = 2 * Math.PI * radius;
@@ -160,15 +131,11 @@ export default function PreviewFrame({
               <h3 className="text-[15px] font-bold text-[#111827]">When to Wear</h3>
               <span className="rounded-full bg-[#eff6ff] px-3 py-1 text-[11px] font-semibold text-[#2563eb]">AI Picks</span>
             </div>
-            <div className="grid grid-cols-4 gap-3">
-              {occasionCards.map((card) => (
-                <div key={card.title} className={`min-h-[90px] rounded-[18px] border border-[#f2f4f7] p-3 ${card.accent}`}>
-                  <p className="text-[13px] font-semibold">
-                    <span className="mr-2 text-[16px]">{card.icon}</span>
-                    {card.title}
-                  </p>
-                  <p className="mt-2 text-[11px] leading-tight text-[#374151]">{card.subtitle}</p>
-                </div>
+            <div className="flex flex-wrap gap-3">
+              {whenToWear.map((item) => (
+                <span key={item} className="rounded-full border border-[#e5e7ef] bg-[#f8fafc] px-3 py-2 text-[12px] font-semibold text-[#334155]">
+                  {item}
+                </span>
               ))}
             </div>
           </div>

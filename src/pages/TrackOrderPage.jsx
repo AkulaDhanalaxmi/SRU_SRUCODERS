@@ -9,9 +9,17 @@ import {
   Hourglass, Cloud, User,
 } from "lucide-react";
 import api, { apiError } from "../lib/api";
+import LiveDeliveryMap from "../components/LiveDeliveryMap";
 import { Header } from "../components/Header";
 import { TrustStrip } from "../components/TrustStrip";
 import { BottomSheet } from "../components/BottomSheet";
+
+const backendBase = process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:8000";
+const resolveBackendUploadUrl = (url) => {
+  if (!url) return "";
+  if (url.startsWith("data:") || url.startsWith("http")) return url;
+  return `${backendBase}${url}`;
+};
 
 const OPTION_ICONS = { zap: Zap, "map-pin": MapPin, clock: Clock };
 const RETURN_ICONS = { sparkles: Sparkles, repeat: Repeat, shirt: Shirt, headphones: Headphones };
@@ -28,6 +36,7 @@ export default function TrackOrderPage() {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
   const [monitor, setMonitor] = useState(null);
+  const [itemPredictions, setItemPredictions] = useState({});
   const [returnSheet, setReturnSheet] = useState(false);
   const [returnOptions, setReturnOptions] = useState(null);
   const [feedbackGiven, setFeedbackGiven] = useState(null);
@@ -41,16 +50,105 @@ export default function TrackOrderPage() {
   const [returnReason, setReturnReason] = useState(null);
   const [returnNotes, setReturnNotes] = useState("");
   const [canceling, setCanceling] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
-  const load = useCallback(() => {
-    api.get(`/orders/${id}`).then(({ data }) => {
+  const load = useCallback(async () => {
+    setLoadError(null);
+    setOrder(null);
+    setMonitor(null);
+
+    try {
+      const { data } = await api.get(`/orders/${id}`);
       setOrder(data);
       setFeedbackGiven(data.fit_feedback);
-    });
-    api.get(`/orders/${id}/monitor`).then(({ data }) => setMonitor(data));
+    } catch (error) {
+      const message = apiError(error);
+      setLoadError(message);
+      toast.error(message);
+      return;
+    }
+
+    try {
+      const { data } = await api.get(`/orders/${id}/monitor`);
+      setMonitor(data);
+    } catch (error) {
+      setMonitor(null);
+      toast.error(apiError(error));
+    }
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!order?.items?.length || !order?.address?.pin) {
+      setItemPredictions({});
+      return;
+    }
+
+    let cancelled = false;
+    const uniqueIds = [...new Set(order.items.map((item) => item.product_id))];
+    const paymentMethod = order.payment_method || "card";
+    const deliveryType = order.delivery_type || "standard";
+
+    Promise.all(uniqueIds.map((pid) =>
+      api.get(`/products/${pid}/delivery`, { params: { pin: order.address.pin, payment_method: paymentMethod, delivery_type: deliveryType } })
+        .then(({ data }) => ({ pid, prediction: data }))
+        .catch(() => ({ pid, prediction: null }))
+    ))
+      .then((results) => {
+        if (cancelled) return;
+        setItemPredictions(Object.fromEntries(results.map((result) => [result.pid, result.prediction])));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [order]);
+
+  const DELIVERY_TYPE_LABELS = {
+    standard: "Standard delivery",
+    express: "Express delivery",
+    same_day: "Same-day delivery",
+  };
+
+  const formatDeliveryDate = (option) => {
+    if (!option) return null;
+    if (option.date) return option.date;
+    if (option.arrival_iso) {
+      const parsed = new Date(option.arrival_iso);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+      }
+    }
+    return option.label || option.estimated_label || null;
+  };
+
+  const formatDeliveryPrediction = (prediction, selectedType = "standard") => {
+    if (!prediction) return null;
+    const option = prediction.options?.find((o) => o.type === selectedType) || prediction.options?.[0];
+    if (!option) return prediction.estimated_label || prediction.prediction_text || null;
+    const dateText = formatDeliveryDate(option);
+    return dateText ? `Arrives by ${dateText}` : prediction.estimated_label || prediction.prediction_text || null;
+  };
+
+  const getSelectedDeliveryType = () => order?.delivery_option || order?.delivery_type || "standard";
+
+  const getOrderDeliveryDate = () => {
+    const selectedType = getSelectedDeliveryType();
+    const option = order?.delivery_prediction?.options?.find((o) => o.type === selectedType)
+      || order?.delivery_prediction?.options?.[0];
+    return formatDeliveryDate(option) || (order?.eta ? new Date(order.eta).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" }) : null);
+  };
+
+  const getItemDeliveryEta = (item) => {
+    const prediction = itemPredictions[item.product_id];
+    const deliveryType = getSelectedDeliveryType();
+    const typeLabel = DELIVERY_TYPE_LABELS[deliveryType] || "Delivery";
+    const eta = formatDeliveryPrediction(prediction, deliveryType)
+      || (item.delivery_estimate ? `Arrives by ${new Date(item.delivery_estimate).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}` : null)
+      || (getOrderDeliveryDate() ? `Arrives by ${getOrderDeliveryDate()}` : "Arrives soon");
+    return eta ? `${typeLabel}: ${eta.replace(/^Arrives by /, "")}` : "Delivery estimate unavailable";
+  };
 
   const advance = async () => {
     const { data } = await api.post(`/orders/${id}/advance`);
@@ -308,7 +406,7 @@ export default function TrackOrderPage() {
                 <p className="text-sm font-bold text-[#03A685] mt-0.5">
                   {delivered
                     ? `Delivered ${lastDoneStep?.at ? new Date(lastDoneStep.at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}`
-                    : `${new Date(order.eta).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} by 8:00 PM`}
+                    : `${getOrderDeliveryDate()} by 8:00 PM`}
                 </p>
               </div>
               {!delivered && (
@@ -349,29 +447,47 @@ export default function TrackOrderPage() {
 
             {/* map / delivered state */}
             {!delivered ? (
-              <div data-testid="live-map" className="relative border border-gray-100 rounded-xl overflow-hidden flex-1 min-h-[176px] bg-[#EAF3EE]">
-                <svg viewBox="0 0 400 190" className="w-full h-full" preserveAspectRatio="none">
-                  <rect width="400" height="190" fill="#E8F0E8" />
-                  <path d="M0 60 H400 M0 130 H400 M80 0 V190 M200 0 V190 M320 0 V190" stroke="#fff" strokeWidth="8" />
-                  <path d="M60 150 Q140 100 200 95 T340 45" stroke="#FF3E6C" strokeWidth="3" strokeDasharray="7 5" fill="none" />
-                  <circle cx="60" cy="150" r="6" fill="#282C3F" />
-                  <circle cx="340" cy="45" r="6" fill="#03A685" />
-                </svg>
-                <div className="absolute left-[9%] bottom-[12%] flex items-center gap-1 bg-white rounded-full px-2 py-1 shadow text-[9px] font-bold text-[#282C3F]"><Warehouse size={10} /> {order.items[0].warehouse}</div>
-                <div className="absolute right-[6%] top-[14%] flex items-center gap-1 bg-white rounded-full px-2 py-1 shadow text-[9px] font-bold text-[#03A685]"><Home size={10} /> {order.address.city}</div>
-                <motion.div
-                  className="absolute"
-                  initial={false}
-                  animate={{ left: `${12 + progress * 65}%`, top: `${68 - progress * 45}%` }}
-                  transition={{ type: "spring", damping: 20 }}>
-                  <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 1.4 }}
-                    className="bg-[#FF3E6C] text-white rounded-full p-2 shadow-lg">
-                    <Bike size={16} />
-                  </motion.div>
-                </motion.div>
-                <button className="absolute bottom-2 right-2 bg-white/95 backdrop-blur-sm shadow rounded-lg px-3 py-1.5 text-[10px] font-bold text-[#282C3F] flex items-center gap-1 hover:bg-white transition-colors">
-                  <MapPin size={11} className="text-[#FF3E6C]" /> Live Tracking
-                </button>
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-gray-200 bg-white p-4">
+                  <p className="text-sm font-bold text-[#111827] mb-3">Item-level delivery estimates</p>
+                  <div className="space-y-3">
+                    {order.items.map((item) => (
+                      <div key={`${item.product_id}-${item.size}-${item.warehouse}`} className="rounded-2xl border border-[#E5E7EB] bg-[#F8FAFC] p-4">
+                        <div className="flex items-start gap-3">
+                          <img src={item.image} alt={item.name} className="h-16 w-16 rounded-2xl object-cover bg-[#F5F7FA]" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-[#111827]">{item.name}</p>
+                            <p className="text-xs text-[#64748B] mt-1">Warehouse: {item.warehouse || "Unknown"}</p>
+                            <p className="text-xs text-[#374151] mt-2">{getItemDeliveryEta(item)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-[28px] border border-gray-200 bg-white shadow-sm overflow-hidden">
+                  <div className="h-[450px] md:h-[520px]">
+                    <LiveDeliveryMap
+                      warehouseCoords={order?.delivery_warehouse_coords}
+                      warehouseAddress={
+                        order?.delivery_warehouse_address ||
+                        (order?.items?.[0]?.warehouse ? `${order.items[0].warehouse}, India` : null)
+                      }
+                      customerCoords={order?.customer_location_coords}
+                      warehouseLabel={order?.delivery_warehouse || (order?.items?.[0]?.warehouse || "Warehouse")}
+                      customerAddress={{
+                        line1: order?.address?.line1,
+                        city: order?.address?.city,
+                        state: order?.address?.state,
+                        pin: order?.address?.pin,
+                      }}
+                      deliveryPartner={order?.delivery_courier}
+                      statusProgress={progress}
+                      expectedDeliveryLabel={getOrderDeliveryDate() ? `By ${getOrderDeliveryDate()}` : "Delivery estimate coming soon"}
+                      status={order?.status}
+                    />
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="rounded-xl bg-[#ECFDF5] border border-[#03A685]/20 flex-1 min-h-[176px] flex items-center justify-center text-center px-6">
@@ -467,7 +583,7 @@ export default function TrackOrderPage() {
                   </div>
                 )}
                 {order.packguard.qr_code_url && (
-                  <button onClick={() => window.open(order.packguard.qr_code_url.startsWith("http") ? order.packguard.qr_code_url : window.location.origin + order.packguard.qr_code_url, "_blank")}
+                  <button onClick={() => window.open(resolveBackendUploadUrl(order.packguard.qr_code_url), "_blank")}
                     className="w-full rounded-full bg-[#10B981] px-4 py-2 text-xs font-semibold text-white hover:bg-[#059669] transition-colors mt-4">
                     View QR
                   </button>
@@ -532,7 +648,7 @@ export default function TrackOrderPage() {
                       <p className="text-[10px] uppercase tracking-[0.15em] text-[#9A3412] font-semibold">Predicted Delivery</p>
                       <div className="flex items-center justify-between mt-1">
                         <p className="text-xs font-bold text-[#7C2D12]">
-                          {new Date(order.eta).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} by 8:00 PM
+                          {getOrderDeliveryDate()} by 8:00 PM
                         </p>
                         <span className="text-[10px] font-bold text-[#EA580C]">On time</span>
                       </div>

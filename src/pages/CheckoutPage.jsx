@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ShoppingBag, MapPin, Truck, Zap, CreditCard, Banknote, Smartphone, CheckCircle2, ShieldCheck, Package } from "lucide-react";
@@ -33,11 +33,56 @@ export default function CheckoutPage() {
   const [delivery, setDelivery] = useState("standard");
   const [payment, setPayment] = useState("cod");
   const [busy, setBusy] = useState(false);
+  const [predictions, setPredictions] = useState({});
 
   const subtotal = cart.reduce((n, i) => n + i.product.price * i.qty, 0);
   const mrpTotal = cart.reduce((n, i) => n + i.product.mrp * i.qty, 0);
   const fee = DELIVERY.find((d) => d.v === delivery)?.fee || 0;
   const selectedAddress = user?.addresses?.find((a) => a.id === addressId);
+  const pin = selectedAddress?.pin;
+
+  useEffect(() => {
+    if (!pin || cart.length === 0) {
+      setPredictions({});
+      return;
+    }
+
+    let cancelled = false;
+    const uniqueIds = [...new Set(cart.map((item) => item.product_id))];
+
+    Promise.all(uniqueIds.map((pid) =>
+      api.get(`/products/${pid}/delivery`, { params: { pin, payment_method: payment, delivery_type: delivery } })
+        .then(({ data }) => ({ pid, prediction: data }))
+        .catch(() => ({ pid, prediction: null }))
+    ))
+      .then((results) => {
+        if (cancelled) return;
+        setPredictions(Object.fromEntries(results.map((result) => [result.pid, result.prediction])));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cart, pin, payment, delivery]);
+
+  const formatDeliveryPrediction = (prediction, selectedType) => {
+    if (!prediction) return null;
+    const option = prediction.options?.find((o) => o.type === selectedType) || prediction.options?.[0];
+    if (!option) return prediction.estimated_label || prediction.prediction_text || null;
+    if (option.date) return `Arrives by ${option.date}`;
+    if (option.arrival_iso) {
+      const parsed = new Date(option.arrival_iso);
+      if (!Number.isNaN(parsed.getTime())) {
+        return `Arrives by ${parsed.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}`;
+      }
+    }
+    return prediction.estimated_label || prediction.prediction_text || null;
+  };
+
+  const getDeliveryLabelForItem = (item) => {
+    const prediction = predictions[item.product_id];
+    return formatDeliveryPrediction(prediction, delivery) || formatDeliveryDate(item.product.delivery_estimate) || item.product.delivery_estimate || "Arrives Tomorrow";
+  };
 
   const placeOrder = async () => {
     if (!addressId) return toast.error("Please select a delivery address");
@@ -188,7 +233,7 @@ export default function CheckoutPage() {
                       <p className="text-sm font-semibold text-[#111827] truncate">{item.product.name}</p>
                       <p className="text-xs text-[#64748B] mt-1">Size: {item.size || "-"} · Color: {item.product.color || "Rust"}</p>
                       <p className="text-xs text-[#64748B] mt-1">Qty: {item.qty}</p>
-                      <p className="text-xs text-[#64748B] mt-1">{formatDeliveryDate(item.product.delivery_estimate) || item.product.delivery_estimate || "Arrives Tomorrow"}</p>
+                      <p className="text-xs text-[#64748B] mt-1">{getDeliveryLabelForItem(item)}</p>
                     </div>
                     <p className="ml-auto text-sm font-semibold text-[#111827]">₹{item.product.price}</p>
                   </div>
