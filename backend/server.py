@@ -2233,7 +2233,7 @@ else:
 
 
 def get_allowed_origins():
-    raw = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000')
+    raw = os.environ.get('CORS_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000,https://myntra-speedandtrust.vercel.app')
     allowed = [origin.strip() for origin in raw.split(',') if origin.strip()]
     allowed.extend([
         'http://localhost:3000',
@@ -2242,6 +2242,7 @@ def get_allowed_origins():
         'http://127.0.0.1:3001',
         'http://localhost:3002',
         'http://127.0.0.1:3002',
+        'https://myntra-speedandtrust.vercel.app',
     ])
     return allowed
 
@@ -2250,7 +2251,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
     allow_origins=get_allowed_origins(),
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_origin_regex=r"^(https://.*\.vercel\.app|http://(localhost|127\.0\.0\.1)(:\d+)?)$",
     allow_methods=["*"],
     allow_headers=["*"],
 )
